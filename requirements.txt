@@ -1,0 +1,7 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+databases[sqlite,aiosqlite]==0.9.0
+sqlalchemy==2.0.30
+pyjwt==2.8.0
+python-multipart==0.0.9
+pydantic==2.7.1
