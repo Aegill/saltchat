@@ -236,6 +236,29 @@ async def get_group_members(group_id: int, current=Depends(get_current_user)):
     )
     return [{"id": r["id"], "username": r["username"], "online": manager.is_online(r["id"])} for r in rows]
 
+
+@app.delete("/history/{target_id}")
+async def delete_history(target_id: int, is_group: bool = False, current=Depends(get_current_user)):
+    me = current["user_id"]
+    if is_group:
+        # Удалить группу + все сообщения + участников (только если owner)
+        group = await database.fetch_one(groups.select().where(groups.c.id == target_id))
+        if not group:
+            raise HTTPException(404, "Group not found")
+        if group["owner_id"] != me:
+            raise HTTPException(403, "Only the owner can delete a group")
+        await database.execute(messages.delete().where(messages.c.group_id == target_id))
+        await database.execute(group_members.delete().where(group_members.c.group_id == target_id))
+        await database.execute(groups.delete().where(groups.c.id == target_id))
+        return {"ok": True}
+    else:
+        # Удалить переписку с пользователем (только у себя — удаляет все сообщения между двумя)
+        await database.execute(messages.delete().where(
+            ((messages.c.from_user == me) & (messages.c.to_user == target_id)) |
+            ((messages.c.from_user == target_id) & (messages.c.to_user == me))
+        ))
+        return {"ok": True}
+
 # ─── WebSocket ──────────────────────────────────────────────────────────────────
 @app.websocket("/ws/{token}")
 async def websocket_endpoint(websocket: WebSocket, token: str):
